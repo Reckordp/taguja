@@ -39,7 +39,9 @@ class PabrikFiturBot
     end
     jawaban = fitur_terseleksi.collect do |ft|
       ft.lakukan(perintah)
-      ft.jawaban_dari_bot
+      jwb = ft.jawaban_dari_bot
+	  ft.jawaban_dari_bot.clear
+	  jwb
     end
     return jawaban.join("\n&\n")
   end
@@ -165,6 +167,30 @@ LEMBARAN
     jumlah = kesempatan.length
     bt = pesan_belum_terbaca.length
     jawab(UCAPAN % [jumlah, bt])
+  end
+end
+
+class InfoFitur < IndukBotFitur
+  PERINTAH = %w(info)
+  UCAPAN = <<LEMBARAN
+*PROJECT*: Jennerie
+*COORDINATE*: Jenneire
+*INTERFACE*: Nusa
+*DUMPER*: Shipped
+*SUPPORT*: mruby
+*BACKEND*: Taguja
+*DESK*: nodejs (modification)
+*ENGINE*: V8
+*MACHINE*: Microsoft Windows [Version 10.0.22631.3880]
+*REPOSITORY*: https://github.com/Reckordp/taguja
+LEMBARAN
+
+  def rutinitas
+    jawab(UCAPAN)
+  end
+  
+  def kasus
+	rutinitas
   end
 end
 
