@@ -668,7 +668,8 @@ void taguja_proxy(const FunctionCallbackInfo<Value>& args) {
     "DEFAULT_ORIGIN", 
     "MEDIA_PATH_MAP", 
     "URL_EXCLUDE_REGEX", 
-    "URL_REGEX"
+    "URL_REGEX", 
+    "MEDIA_KEYS"
   };
   
   if (target->Has(c, prop).FromJust()) {
@@ -753,7 +754,8 @@ void taguja_respon_pesan(const FunctionCallbackInfo<Value>& info) {
   Isolate* isolate = info.GetIsolate();
   Local<Context> context = isolate->GetCurrentContext();
   pesan_rincian rinci;
-  Local<Object> dari;
+  bungkus_js pegang;
+  Local<Object> dari, global;
   Local<Value> prop;
   Local<String> tulisan;
 
@@ -792,6 +794,12 @@ void taguja_respon_pesan(const FunctionCallbackInfo<Value>& info) {
   prop = dari->Get(context, FIXED_ONE_BYTE_STRING(isolate, "fromMe")).ToLocalChecked();
   Local<Boolean> bendera = prop.As<Boolean>();
   rinci.fromMe = bendera->BooleanValue(isolate);
+
+  global = context->Global();
+  prop = global->Get(context, FIXED_ONE_BYTE_STRING(isolate, "conn")).ToLocalChecked();
+  Local<Object> akar = prop.As<Object>();
+  rinci.akar = &pegang;
+  pegang.akar.Reset(isolate, akar);
 
   size_t panjang, banget;
   char16_t* duaByte;
@@ -1621,6 +1629,146 @@ void Taguja::UraiJSON(compiler_rincian* rinci, struct bungkus_lorong* bungkus) {
   } else {
     rinci->hasil = mrb_nil_value();
   }
+}
+
+MaybeLocal<Value> Taguja::ObjJSFromRuby(Isolate* iso, mrb_value asal) {
+  EscapableHandleScope scope(iso);
+  Local<Array> deret;
+  Local<Object> duet;
+  Local<String> json;
+  Local<Value> tempel, hasil;
+  mrb_value serial;
+  char16_t *wideString;
+  size_t banget;
+
+  if (mrb_string_p(asal)) {
+    hasil = OneByteString(iso, RSTRING_PTR(asal), RSTRING_LEN(asal));
+  } else if (mrb_symbol_p(asal)) {
+    hasil = OneByteString(iso, mrb_sym2name(diri_, mrb_symbol(asal)));
+  } else if (mrb_array_p(asal)) {
+    deret = Array::New(iso, RARRAY_LEN(asal));
+    for (size_t i = 0; i < RARRAY_LEN(asal); i++) {
+      if (ObjJSFromRuby(iso, RARRAY_PTR(asal)[i]).ToLocal(&tempel)) {
+        deret->Set(env_->context(), i, tempel).Check();
+      } else {
+        return {};
+      }
+    }
+    hasil = deret;
+  } else if (mrb_hash_p(asal)) {
+    serial = mrb_funcall(diri_, asal, "to_json", 0);
+    wideString = reinterpret_cast<char16_t*>(malloc(sizeof(char16_t) * (RSTRING_LEN(serial) + 1)));
+    banget = simdutf::convert_utf8_to_utf16(RSTRING_PTR(serial), RSTRING_LEN(serial), wideString);
+    wideString[banget] = 0;
+    json = String::NewFromTwoByte(iso, reinterpret_cast<uint16_t*>(wideString)).ToLocalChecked();
+    free(wideString);
+    hasil = JSON::Parse(env_->context(), json).ToLocalChecked();
+  } else if (mrb_true_p(asal)) {
+    hasil = True(iso);
+  } else if (mrb_false_p(asal)) {
+    hasil = False(iso);
+  } else if (mrb_nil_p(asal)) {
+    hasil = Null(iso);
+  } else {
+    mrb_raise(diri_, mrb_exc_get(diri_, "ArgumentError"), "Argumen tidak bisa diconvert");
+    return {};
+  }
+  return scope.Escape(hasil);
+}
+
+mrb_value callback_js_func(mrb_state* diri, mrb_value self) {
+  mrb_raise(diri, mrb_exc_get(diri, "RuntimeError"), "Belum sempurna, masih perbaikan");
+  return mrb_nil_value();
+}
+
+mrb_value Taguja::ObjRubyFromJS(Isolate* iso, Local<Value> asal) {
+  mrb_value pegang;
+  Local<Value> tempel, taruh;
+  Local<Array> ary;
+  Local<String> untaian;
+  if (asal->IsString()) {
+    Utf8Value str(iso, asal);
+    return mrb_str_new(diri_, *str, str.length());
+  } else if (asal->IsArray()) {
+    ary = asal.As<Array>();
+    pegang = mrb_ary_new(diri_);
+    for (size_t i = 0; i < ary->Length(); i++) {
+      taruh = ary->Get(env_->context(), i).ToLocalChecked();
+      mrb_ary_push(diri_, pegang, ObjRubyFromJS(iso, taruh));
+    }
+    return pegang;
+  } else if (asal->IsObject()) {
+    untaian = JSON::Stringify(env_->context(), asal).ToLocalChecked();
+    Local<Context> c = env_->context();
+    Local<Object> global = c->Global();
+    Local<String> cns = OneByteString(iso, "console");
+    Local<String> lg = OneByteString(iso, "log");
+    v8::Local<v8::Value> cVal = global->Get(c, cns).ToLocalChecked();
+    
+    if (cVal->IsObject()) {
+      v8::Local<v8::Object> console = cVal.As<v8::Object>();
+      v8::Local<v8::Value> log = console->Get(c, lg).ToLocalChecked();
+      v8::Local<v8::Function> logFunc = log.As<v8::Function>();
+      Local<Value> args[4];
+      MaybeLocal<Value> ret;
+      args[0] = untaian;
+      ret = logFunc->Call(c, console, 1, args);
+    }
+    Utf8Value str2(iso, untaian);
+    
+    pegang = mrb_str_new(diri_, *str2, str2.length());
+    // return mrb_funcall(diri_, mrb_obj_value(mrb_class_get(diri_, "JSON")), "parse", 1, pegang);
+    return mrb_nil_value();
+  } else if (asal->IsNullOrUndefined()) {
+    return mrb_nil_value();
+  } else if (asal->IsTrue()) {
+    return mrb_true_value();
+  } else if (asal->IsFalse()) {
+    return mrb_false_value();
+  } else if (asal->IsFunction()) {
+    RProc* h = mrb_proc_new_cfunc(diri_, callback_js_func);
+    return mrb_obj_value(h);
+  } else {
+    mrb_raise(diri_, mrb_exc_get(diri_, "ArgumentError"), "JS::Value tidak bisa diconvert");
+  }
+  return mrb_nil_value();
+}
+
+mrb_value Taguja::RefFromRuby(bungkus_js* bjs, mrb_sym nama, mrb_value* argv, mrb_int len) {
+  Isolate *iso;
+  Local<Context> ctx;
+  Local<Value> tempel, nilai, taruh;
+  Local<Object> sumber;
+  Local<Function> fn;
+  std::vector<Local<Value>> param{};
+  mrb_value pegang;
+  int arena;
+
+  arena = mrb_gc_arena_save(diri_);
+  iso = env_->isolate();
+  ctx = env_->context();
+  sumber = bjs->akar.Get(iso);
+  if (!sumber->Has(ctx, OneByteString(iso, mrb_sym2name(diri_, nama))).ToChecked()) {
+    mrb_raise(diri_, mrb_exc_get(diri_, "ArgumentError"), "Attribute tidak ditemukan");
+  }
+  nilai = sumber->Get(ctx, OneByteString(iso, mrb_sym2name(diri_, nama))).ToLocalChecked();
+  if (nilai->IsFunction()) {
+    fn = nilai.As<Function>();
+    for (size_t i = 0; i < len; i++) {
+      if (ObjJSFromRuby(iso, argv[i]).ToLocal(&tempel)) {
+        param.push_back(tempel);
+      } else {
+        return mrb_nil_value();
+      }
+    }
+    taruh = fn->Call(ctx, Undefined(iso), len, param.data()).ToLocalChecked();
+  } else {
+    taruh = nilai;
+  }
+  
+  pegang = ObjRubyFromJS(iso, taruh);
+  mrb_gc_arena_restore(diri_, arena);
+  return pegang;
 }
 
 void Taguja::Logout() {
