@@ -8,8 +8,12 @@ extern char _binary_penjawab_pesan_z_start[];
 extern char _binary_penjawab_pesan_z_end[];
 extern char _binary_pangkalan_z_start[];
 extern char _binary_pangkalan_z_end[];
+extern char _binary_transaksi_z_start[];
+extern char _binary_transaksi_z_end[];
 extern char _binary_sql_statement_z_start[];
 extern char _binary_sql_statement_z_end[];
+extern char _binary_barang_ransel_z_start[];
+extern char _binary_barang_ransel_z_end[];
 extern char _binary_user_personal_z_start[];
 extern char _binary_user_personal_z_end[];
 extern char _binary_owner_only_z_start[];
@@ -24,6 +28,8 @@ extern char _binary_premium_bet_z_start[];
 extern char _binary_premium_bet_z_end[];
 extern char _binary_free_common_z_start[];
 extern char _binary_free_common_z_end[];
+extern char _binary_free_common_a_z_start[];
+extern char _binary_free_common_a_z_end[];
 extern char _binary_free_inflow_z_start[];
 extern char _binary_free_inflow_z_end[];
 extern char _binary_free_outflow_z_start[];
@@ -67,76 +73,94 @@ void mula_database(keterangan_mula_database* ket) {
     ket->m_script(1, "Pangkalan", code);
   }
 
+  ukuran = _binary_transaksi_z_end - _binary_transaksi_z_start;
+  if (decode_text(code, &panjang, _binary_transaksi_z_start, ukuran)) {
+    code[panjang] = 0;
+    ket->m_script(2, "Transaksi", code);
+  }
+
   ukuran = _binary_sql_statement_z_end - _binary_sql_statement_z_start;
   if (decode_text(code, &panjang, _binary_sql_statement_z_start, ukuran)) {
     code[panjang] = 0;
-    ket->m_script(2, "SQL Stmt", code);
+    ket->m_script(3, "SQL Statement", code);
+  }
+
+  ukuran = _binary_barang_ransel_z_end - _binary_barang_ransel_z_start;
+  if (decode_text(code, &panjang, _binary_barang_ransel_z_start, ukuran)) {
+    code[panjang] = 0;
+    ket->m_script(4, "Barang Ransel", code);
   }
 
   ukuran = _binary_user_personal_z_end - _binary_user_personal_z_start;
   if (decode_text(code, &panjang, _binary_user_personal_z_start, ukuran)) {
     code[panjang] = 0;
-    ket->m_script(3, "User Personal", code);
+    ket->m_script(5, "User Personal", code);
   }
   
-  ket->m_script(4, "-", "");
+  ket->m_script(6, "-", "");
 
   ukuran = _binary_owner_only_z_end - _binary_owner_only_z_start;
   if (decode_text(code, &panjang, _binary_owner_only_z_start, ukuran)) {
     code[panjang] = 0;
-    ket->m_script(5, "Owner Only", code);
+    ket->m_script(7, "Owner Only", code);
   }
 
   ukuran = _binary_premium_event_z_end - _binary_premium_event_z_start;
   if (decode_text(code, &panjang, _binary_premium_event_z_start, ukuran)) {
     code[panjang] = 0;
-    ket->m_script(6, "Prem Evt", code);
+    ket->m_script(8, "Premium Event", code);
   }
 
   ukuran = _binary_premium_limit_z_end - _binary_premium_limit_z_start;
   if (decode_text(code, &panjang, _binary_premium_limit_z_start, ukuran)) {
     code[panjang] = 0;
-    ket->m_script(7, "Prem Lmt", code);
+    ket->m_script(9, "Premium Limit", code);
   }
 
   ukuran = _binary_premium_daily_z_end - _binary_premium_daily_z_start;
   if (decode_text(code, &panjang, _binary_premium_daily_z_start, ukuran)) {
     code[panjang] = 0;
-    ket->m_script(8, "Prem Dly", code);
+    ket->m_script(10, "Premium Daily", code);
   }
 
   ukuran = _binary_premium_bet_z_end - _binary_premium_bet_z_start;
   if (decode_text(code, &panjang, _binary_premium_bet_z_start, ukuran)) {
     code[panjang] = 0;
-    ket->m_script(9, "Prem Bet", code);
+    ket->m_script(11, "Premium Bet", code);
   }
 
   ukuran = _binary_free_common_z_end - _binary_free_common_z_start;
   if (decode_text(code, &panjang, _binary_free_common_z_start, ukuran)) {
     code[panjang] = 0;
-    ket->m_script(10, "Free Cmn", code);
+    ket->m_script(12, "Free Common", code);
+  }
+
+  ukuran = _binary_free_common_a_z_end - _binary_free_common_a_z_start;
+  if (decode_text(code, &panjang, _binary_free_common_a_z_start, ukuran)) {
+    code[panjang] = 0;
+    ket->m_script(13, "Free Common A", code);
   }
 
   ukuran = _binary_free_inflow_z_end - _binary_free_inflow_z_start;
   if (decode_text(code, &panjang, _binary_free_inflow_z_start, ukuran)) {
     code[panjang] = 0;
-    ket->m_script(11, "Free IF", code);
+    ket->m_script(14, "Free InFlow", code);
   }
 
   ukuran = _binary_free_outflow_z_end - _binary_free_outflow_z_start;
   if (decode_text(code, &panjang, _binary_free_outflow_z_start, ukuran)) {
     code[panjang] = 0;
-    ket->m_script(12, "Free OF", code);
+    ket->m_script(15, "Free OutFlow", code);
   }
 
-  ket->m_script(13, "-", "");
+  ket->m_script(16, "-", "");
 
   ukuran = _binary_medan_z_end - _binary_medan_z_start;
   if (decode_text(code, &panjang, _binary_medan_z_start, ukuran)) {
     code[panjang] = 0;
-    ket->m_script(14, "Medan", code);
+    ket->m_script(17, "Medan", code);
   }
-  ket->m_script(15, "-", "");
+  ket->m_script(18, "-", "");
 
   free(code);
 }

@@ -14,17 +14,25 @@ module Inventory
   }
   
   class Barang
-    attr_accessor :nama, :jumlah, :efek
+    attr_accessor :nama, :jumlah
 
     @tersedia = {}
 
-    def self.tambah(nama, kelazz)
-      @tersedia[nama] = kelazz
+    def self.tambah(nama, kelazz, efek=nil)
+      @tersedia[nama] = { const: kelazz, efek: efek }
       return nil
     end
 
-    def self.kelazzdarinama(nama)
+    def self.barangdarinama(nama)
       return @tersedia[nama]
+    end
+
+    def self.kelazzdarinama(nama)
+      return barangdarinama(nama)[:const]
+    end
+
+    def efek
+      return Barang.barangdarinama(nama)[:efek]
     end
 
     def jenis
@@ -46,6 +54,12 @@ module Inventory
 
     def dikonsumsi?
       return jenis == :makanan
+    end
+
+    def pake
+      return kenakan if melengkapi?
+      return gunakan if bekerja?
+      return konsumsi if dikonsumsi?
     end
   end
 
@@ -71,15 +85,17 @@ module Inventory
     end
   end
 
-  Barang.tambah(%q(Limit), Makanan)
-  Barang.tambah(%q(🥤 Potion), Makanan)
-  Barang.tambah(%q(🍶 Aqua), Makanan)
+  # Barang.tambah(%q(Limit), Makanan, {  })
+  Barang.tambah(%q(🥤 Potion), Makanan, { nyawa: 20 })
+  Barang.tambah(%q(🍶 Aqua), Makanan, { nyawa: 5, tenaga: 40 })
   Barang.tambah(%q(🪙  Gold), Perlengkapan)
   Barang.tambah(%q(💎 Diamond), Perlengkapan)
   Barang.tambah(%q(🪨 Batu), Perlengkapan)
   Barang.tambah(%q(🪵 Kayu), Perlengkapan)
   Barang.tambah(%q(🕸️ String), Perlengkapan)
   Barang.tambah(%q(⛓️ Iron), Perlengkapan)
-  Barang.tambah(%q(📓 Buku), Makanan)
+  Barang.tambah(%q(📓 Buku), Makanan, { intellegent: 65 })
   Barang.tambah(%q(🗑️ Sampah), Barang)
+  Barang.tambah(%q(⚔️ Sword), Peralatan)
+  Barang.tambah(%q(🥼 Armor), Peralatan)
 end

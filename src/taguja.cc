@@ -511,6 +511,8 @@ void shipped_require(const FunctionCallbackInfo<Value>& args) {
       breq = penyedia->logout_.Get(isolate);
     }
     maybe = MaybeLocal<Value>(breq);
+  } else if (id == "jennerie/plugins") {
+    // Load plugins
   } else {
     maybe = taguja_require(env, id);
   }
@@ -543,9 +545,10 @@ void lorong_compiler(compiler_rincian* rinci) {
   struct bungkus_lorong* bungkus;
   Taguja* penyedia;
   const char *id, *filename, *ext;
-  int index;
+  int index, arena;
 
   diri = rinci->diri;
+  arena = mrb_gc_arena_save(diri);
   bungkus = new struct bungkus_lorong();
   tangkap = mrb_data_object_alloc(diri, diri->object_class, bungkus, &lorong_type);
   penyedia = reinterpret_cast<Taguja*>(rinci->kuasa);
@@ -592,6 +595,7 @@ void lorong_compiler(compiler_rincian* rinci) {
       rinci->hasil = mrb_nil_value();
     }
   }
+  mrb_gc_arena_restore(diri, arena);
 }
 
 void lorong_esm_compiler(compiler_rincian* rinci) {
@@ -1129,6 +1133,7 @@ v8::MaybeLocal<v8::Value> Taguja::LoadEntryFileOrZlib() {
     MulaiESM();
     bungkus.id = std::string("taguja:entry/entry.js");
     PanggilShipped(portal, &bungkus);
+    lorong_js_(this);
     return scope.Escape(bungkus.inti.Get(isolate));
   } else {
     return {};
@@ -1769,6 +1774,38 @@ mrb_value Taguja::RefFromRuby(bungkus_js* bjs, mrb_sym nama, mrb_value* argv, mr
   pegang = ObjRubyFromJS(iso, taruh);
   mrb_gc_arena_restore(diri_, arena);
   return pegang;
+}
+
+void Taguja::TambahanJS(rincian_tambahan_js* rtj, const char* kode) {
+  MaybeLocal<Function> maybe;
+  Local<Function> fn;
+  compiler_rincian rinci;
+  struct bungkus_lorong *bungkus;
+  bungkus_js *akar;
+  char *id;
+  bungkus = new struct bungkus_lorong();
+  akar = new bungkus_js();
+  id = "jennerie: source number xxx";
+  id[24] = rtj->id / 100 + 0x30;
+  id[25] = rtj->id / 10 % 10 + 0x30;
+  id[26] = rtj->id % 10 + 0x30;
+  rinci.id = id;
+  rinci.sumber = kode;
+  rinci.length = strlen(kode);
+  maybe = Compile(&rinci);
+  if (maybe.ToLocal(&fn)) {
+    bungkus->id = std::string(id);
+    bungkus->filename = std::string("system");
+    PanggilShipped(fn, bungkus);
+    akar->akar.Reset(env_->isolate(), bungkus->inti.As<Object>());
+    rtj->bungkus = bungkus;
+    rtj->akar = akar;
+  } else {
+    rtj->bungkus = NULL;
+    rtj->akar = NULL;
+    delete bungkus;
+    delete akar;
+  }
 }
 
 void Taguja::Logout() {

@@ -24,19 +24,41 @@ class Pengguna
     @status = StatusUser.new
     @milik = MilikUser.new
     @jejak = JejakUser.new
+    @milik.inventory = []
+  end
+
+  def punya?(nama, jumlah)
+    barang = @milik.inventory.find { |b| b.nama == nama }
+    unless barang.nil?
+      return true unless barang.jumlah < jumlah
+    end
+    return false
   end
 
   def terima(nama, jumlah)
-    @milik.inventory = [] if @milik.inventory.nil?
     barang = @milik.inventory.find { |b| b.nama == nama }
     if barang.nil?
-      Inventory::Barang.kelazzdarinama(nama).new.tap do |b|
+      barang = Inventory::Barang.kelazzdarinama(nama).new.tap do |b|
         b.nama = nama
         b.jumlah = jumlah
         @milik.inventory.push(b)
       end
     else
       barang.jumlah += jumlah
+    end
+  end
+
+  def terkena_efek(atribut, jumlah)
+    meth = "#{atribut}=".to_sym
+    if status.respond_to?(atribut)
+      asal = status.send(atribut)
+      status.send(meth, asal + jumlah)
+    elsif milik.respond_to?(atribut)
+      asal = milik.send(atribut)
+      milik.send(meth, asal + jumlah)
+    elsif jejak.respond_to?(atribut)
+      asal = jejak.send(atribut)
+      jejak.send(meth, asal + jumlah)
     end
   end
 end
@@ -78,9 +100,9 @@ class DataManajer
     prosedur = Array.new
     row_pengguna = Array.new(3)
     while Taguja.lembaran(%q(pengguna), row_pengguna)
-      usr = Pengguna.new(row_pengguna[1])
-      psd = proc do 
-        Taguja.gramasi(PILIH_BARIS[:KONDISI][:BY_PENGGUNA_ID] % row_pengguna[0].to_i)
+      user = Pengguna.new(row_pengguna[1])
+      psd = proc do |id, usr|
+        Taguja.gramasi(PILIH_BARIS[:KONDISI][:BY_PENGGUNA_ID] % id)
         row_kondisi = Array.new(10)
         if Taguja.lembaran(%q(kondisi), row_kondisi)
           usr.status.tap do |s|
@@ -94,7 +116,7 @@ class DataManajer
           end
         end
 
-        Taguja.gramasi(PILIH_BARIS[:MILIK][:BY_PENGGUNA_ID] % row_pengguna[0].to_i)
+        Taguja.gramasi(PILIH_BARIS[:MILIK][:BY_PENGGUNA_ID] % id)
         row_milik = Array.new(6)
         if Taguja.lembaran(%q(milik), row_milik)
           usr.milik.tap do |m|
@@ -107,10 +129,10 @@ class DataManajer
         end
       end
 
-      prosedur.push(psd)
-      @kereta[row_pengguna[1]] = usr
+      prosedur.push({ id: row_pengguna[0].to_i, usr: user, muat: psd })
+      @kereta[row_pengguna[1]] = user
     end
-    prosedur.each(&:call)
+    prosedur.each { |bentuk| bentuk[:muat].call(bentuk[:id], bentuk[:usr]) }
   end
 
   def pengguna_tersedia?(jid)
@@ -150,6 +172,16 @@ class DataManajer
 
   def pengguna_dari_jid(jid)
     return @kereta[jid]
+  end
+
+  def ganti_owner(jid)
+    owner = pengguna_dari_jid(jid_owner)
+    pengganti = pengguna_dari_jid(jid)
+    owner.status.cincin += 1
+    pengganti.status.cincin = 0
+    def @owner.jid
+      return jid
+    end
   end
 
   def simpan

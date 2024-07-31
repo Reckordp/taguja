@@ -21,82 +21,6 @@ RINCIAN
     end
   end
 
-  class FiturMailBox < IndukFiturBot
-    class Mail
-      attr_accessor :dibuka, :subyek, :pengirim, :konten
-
-      def baru?
-        return @dibuka == false
-      end
-    end
-
-    PERINTAH = %w( mailbox mb )
-    UCAPAN = <<LEMBARAN
-Ada %d pesan
-Sebanyak %d belum terbaca
-LEMBARAN
-
-    def pesan_belum_terbaca
-      return kesempatan.select(&:baru?)
-    end
-
-    def baru?
-      return !pesan_belum_terbaca.empty?
-    end
-
-    def rutinitas
-      jumlah = kesempatan.length
-      bt = pesan_belum_terbaca.length
-      jawab UCAPAN % [jumlah, bt]
-    end
-
-    def kasus
-      case sasaran
-      when %q(tambah)
-        # menambah pesan
-      when %q(buka)
-        if baru?
-          ucp = String.new
-          pesan = pesan_belum_terbaca.last
-          pesan.terbuka
-          ucp += "Subyek: *#{pesan.subyek}*\n"
-          ucp += "Dari: *#{pesan.pengirim}*\n"
-          ucp += "=============================\n"
-          ucp += pesan.konten
-          jawab ucp
-        else
-          jawab %q(Tidak ada pesan baru)
-        end
-      when %q(semua)
-        ucp = String.new
-        kesempatan.each do |pesan|
-          ucp += "Subyek: *#{pesan.subyek}*\n"
-          ucp += "Dari: *#{pesan.pengirim}*\n\n"
-        end
-        ucp += "Total #{kesempatan.length} pesan"
-        jawab ucp
-      else
-        deret = kesempatan.select do |pesan|
-          pesan.subyek == sasaran
-        end
-        if deret.empty?
-          jawab %q(× Pesan tidak ditemukan)
-        else
-          ucp = String.new
-          deret.each do |pesan|
-            pesan.terbuka if pesan.baru?
-            ucp += "Subyek: *#{pesan.subyek}*\n"
-            ucp += "Dari: *#{pesan.pengirim}*\n"
-            ucp += "=============================\n"
-            ucp += pesan.konten + "\n\n"
-          end
-          jawab ucp
-        end
-      end
-    end
-  end
-
-
   class InfoFitur < IndukFiturBot
     PERINTAH = %w(info)
     UCAPAN = <<LEMBARAN
@@ -121,7 +45,9 @@ LEMBARAN
 
     def memulai
       @ucapan = String.new
-      kelompokkan_fitur.each do |nama, deret|
+      @kelompok = { %q(Free) => [], %q(Premium) => [], %q(Owner) => [] } 
+      kelompokkan_fitur
+      @kelompok.each do |nama, deret|
         @ucapan += "╭━ *「 #{nama.upcase} 」* ━━┈ ⳹\n"
         deret.each do |pr|
           @ucapan += "│ *◦➛ .#{pr}*\n"
@@ -130,39 +56,52 @@ LEMBARAN
       end
     end
 
+    def perintah_dari_fitur(ftr)
+      perintah = ftr.nama_perintah
+      baris = nil
+      case perintah
+      when String
+        baris = perintah.dup
+      when Array
+        baris = String.new
+        perintah.each do |nama|
+          baris = nama.dup if baris.length < nama.length
+        end
+      end
+      return baris
+    end
+
+    def include_premium?(ftr)
+      return @kelompok[%q(Premium)].include?(perintah_dari_fitur(ftr))
+    end
+
+    def include_free?(ftr)
+      return @kelompok[%q(Free)].include?(perintah_dari_fitur(ftr))
+    end
+
     def terima_deret_fitur(d)
       @deret = d
     end
 
     def kelompokkan_fitur
-      kelompok = { %q(Free) => [], %q(Premium) => [], %q(Owner) => [] } 
       @deret.each do |ft|
-        perintah = ft.nama_perintah
-        baris = nil
-        case perintah
-        when String
-          baris = perintah.dup
-        when Array
-          baris = String.new
-          perintah.each do |nama|
-            baris = nama.dup if baris.length < nama.length
-          end
-        end
+        baris = perintah_dari_fitur(ft)
+        next if baris.nil?
 
         kelazz = ft.class.to_s
         if baris == %q(jekpot)
-          kelompok[%q(Owner)].push(baris.dup)
+          @kelompok[%q(Owner)].push(baris.dup)
         elsif kelazz[0, 7] == %q(Premium)
           jenis = kelazz[7, kelazz.index(%q(:)) - 7]
           baris += " ⚡#{jenis.downcase}"
-          kelompok[%q(Premium)].push(baris.dup)
+          @kelompok[%q(Premium)].push(baris.dup)
         elsif kelazz[0, 4] == %q(Free)
           jenis = kelazz[4, kelazz.index(%q(:)) - 4]
           baris += " ⚡#{jenis.downcase}"
-          kelompok[%q(Free)].push(baris.dup)
+          @kelompok[%q(Free)].push(baris.dup)
         end
       end
-      return kelompok
+      return nil
     end
 
     def rutinitas
@@ -200,6 +139,77 @@ LEMBARAN
 \u232c Level = #{usr.jejak.level}
 \u232c Experience = #{usr.jejak.exp}
 LEMBARAN
+      jawab(ucapan)
+    end
+  end
+
+  class FiturPake < IndukFiturBot
+    PERINTAH = %w( use gunakan pake )
+
+    def rutinitas
+      jawab(%q(penggunaan: _.use potion 1_))
+    end
+
+    def kasus
+      ssr = sasaran.dup
+      panjang = ssr.length
+      urutan_nama = ssr.index(32.chr)
+      return rutinitas if urutan_nama.nil?
+      barang = ssr.slice!(0, urutan_nama)
+      ssr.slice!(0, 1)
+      urutan_jumlah = ssr.index(32.chr)
+      return rutinitas unless urutan_jumlah.nil?
+      return rutinitas unless ssr.index(10.chr).nil?
+      return rutinitas unless ssr.bytes.all? { |num| num.between?(0x30, 0x39) }
+      jumlah = ssr.to_i
+      key = Inventory::BARANG_TOKO.keys.find do |nm|
+        urutan = nm.index(32.chr)
+        n = nm.dup
+        n.slice!(0, urutan + 1) unless urutan.nil?
+        n.downcase == barang.downcase
+      end
+
+      barang = pengguna.milik.inventory.find { |b| b.nama == key }
+      if barang.nil?
+        jawab("kamu tidak memiliki *#{key}*")
+      elsif barang.efek.nil?
+        jawab("*#{key}* tidak bisa dipakai")
+      elsif barang.efek.empty?
+        jawab("*#{key}* tidak memiliki efek")
+      elsif barang.efek.is_a?(Hash)
+        jawab("kamu menerima:\n")
+        barang.efek.each do |atribut, banyak|
+          total = banyak * jumlah
+          jawab("#{atribut.to_s}: #{total}\n")
+          pengguna.terkena_efek(atribut, total)
+          jumlah.times { barang.pake }
+        end
+      else
+        jawab("*#{key}* memiliki efek lain. Efek ini tidak dapat digunakan sekarang")
+      end
+    end
+  end
+
+  class FiturInventory < IndukFiturBot
+    PERINTAH = %w( inv inventory )
+
+    def rutinitas
+      ucapan = String.new
+      ucapan += "*Inventory milik _#{TagujaManajer.pengirim.nama}_*\n"
+      ucapan += "============================\n"
+      ucapan += "*Equipment*\n"
+      pengguna.milik.inventory.select { |b| b.is_a?(Inventory::Peralatan) }.each do |e|
+        ucapan += "- #{e.nama}\n"
+      end
+      ucapan += "\n*Perlengkapan*\n"
+      pengguna.milik.inventory.select { |b| b.is_a?(Inventory::Perlengkapan) }.each do |e|
+        ucapan += "- #{e.nama}\n"
+      end
+      ucapan += "\n*Konsumsi*\n"
+      pengguna.milik.inventory.select { |b| b.is_a?(Inventory::Makanan) }.each do |e|
+        ucapan += "- #{e.nama}\n"
+      end
+      ucapan += "============================\n"
       jawab(ucapan)
     end
   end

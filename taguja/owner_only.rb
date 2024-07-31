@@ -14,7 +14,7 @@ class FiturJekpot < IndukFiturBot
     if kasus_angka?
       ucapan = case sasaran.to_i
       when 1
-        Taguja.gramasi(%q(SELECT * FROM plugins ORDER BY urutan;))
+        Taguja.gramasi(SQLStatement::SEMUA_PLUGIN)
         row_plugin = Array.new(5)
         ucapan = String.new
         while Taguja.lembaran(%q(plugins), row_plugin)
@@ -22,14 +22,15 @@ class FiturJekpot < IndukFiturBot
         end
         jawab(ucapan)
       when 2
-        Taguja.gramasi(%q(SELECT * FROM scripts ORDER BY urutan;))
+        Taguja.gramasi(SQLStatement::SEMUA_SCRIPT)
         row_script = Array.new(5)
         ucapan = String.new
         while Taguja.lembaran(%q(scripts), row_script)
           ucapan += "#{row_script[2]}\n"
         end
         jawab(ucapan)
-      when 3; %q(Statement)
+      when 3
+        TagujaManajer.fitur.disable(FreeHidden::FiturDatabase)
       end
     else
       return rutinitas

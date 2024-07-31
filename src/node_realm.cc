@@ -290,6 +290,7 @@ void Realm::BootstrapTaguja() {
   InitChatManager(penyedia);
   penyedia->penangkap_login_ = RenderAngkat;
   penyedia->penangkap_pesan_ = PesanDatang;
+  penyedia->lorong_js_ = MasukLorongJS;
   penyedia->nusa_login_ = Nusaterlogin;
   penyedia->nusa_logout_ = Nusaterlogout;
   TentukanPenguasa(penyedia);

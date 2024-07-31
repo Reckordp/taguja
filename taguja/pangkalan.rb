@@ -1,6 +1,7 @@
 class PabrikFiturBot
   def initialize
     @fitur = []
+    @dilarang = []
     @menu = nil
   end
 
@@ -14,6 +15,10 @@ class PabrikFiturBot
     @fitur.push(fitur_bot)
     @menu.terima_deret_fitur(@fitur) unless @menu.nil?
     return nil
+  end
+
+  def disable(kelazz)
+    @dilarang.push(kelazz)
   end
 
   def jalankan_fitur
@@ -39,9 +44,26 @@ class PabrikFiturBot
     return seleksi_fitur(perintah)
   end
 
+  def memenuhi?(c, ftr)
+    nama = ftr.class.to_s
+    namespace_index = nama.index(%q(:))
+    namespace = namespace_index.nil? ? String.new : nama[0, namespace_index]
+    return true if @menu.nil?
+    return true if namespace == %q(FreeHidden)
+    return true if @menu.include_free?(ftr)
+    if c < 1
+      return true
+    elsif c < 3
+      return @menu.include_premium?(ftr)
+    end
+  end
+
   def seleksi_fitur(perintah)
+    c = TagujaManajer.pengguna.status.cincin
     fitur_terseleksi = @fitur.select do |ftr|
       np = ftr.nama_perintah
+      next false unless memenuhi?(c, ftr)
+      next false if @dilarang.include?(ftr.class)
       next case np
       when Array
         np.any? { |nama| perintah[:nama] == nama }
@@ -91,17 +113,29 @@ class PengantarJS
   end
 end
 
+class String
+  def allnum?
+    self.bytes.all? { |num| num.between?(0x30, 0x39) }
+  end
+end
+
 module TagujaManajer
+  TAG_POSTFIX = %q(@s.whatsapp.net)
+
   @kendali_fitur = PabrikFiturBot.new
   @keterangan = nil
   @seragam = nil
 
   def self.memulai
     @keterangan = DataManajer.new
+    mulai_tunnel
     @kendali_fitur.mulai
     Taguja.ganti_proses_pesan do |psn|
       TagujaManajer.terima_pesan(psn)
     end
+  end
+
+  def self.mulai_tunnel
   end
 
   def self.komisi_owner(money)
@@ -193,7 +227,7 @@ class IndukFiturBot
   end
 
   def kasus_angka?
-    return sasaran.bytes.all? { |num| num.between?(0x30, 0x39) }
+    return sasaran.allnum?
   end
 
   def rutinitas
