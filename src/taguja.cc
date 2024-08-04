@@ -29,6 +29,7 @@ void lorong_compiler(compiler_rincian*);
 void lorong_esm_compiler(compiler_rincian*);
 void bungkus_lorong_free(mrb_state*, void*);
 void bungkus_lorong_esm_free(mrb_state*, void*);
+void bungkus_js_free(mrb_state*, void*);
 
 const struct mrb_data_type lorong_type = {
 	"Lorong", bungkus_lorong_free
@@ -36,6 +37,10 @@ const struct mrb_data_type lorong_type = {
 
 const struct mrb_data_type lorong_esm_type = {
 	"LorongESM", bungkus_lorong_esm_free
+};
+
+const struct mrb_data_type bungkus_js_type = {
+  "BungkusJS", bungkus_js_free
 };
 
 #define LETAK_ENTRY "author/Reckordp/taguja.js"
@@ -511,6 +516,8 @@ void shipped_require(const FunctionCallbackInfo<Value>& args) {
       breq = penyedia->logout_.Get(isolate);
     }
     maybe = MaybeLocal<Value>(breq);
+  } else if (id == "jennerie/plugins") {
+    // Load plugins
   } else {
     maybe = taguja_require(env, id);
   }
@@ -536,6 +543,11 @@ void bungkus_lorong_esm_free(mrb_state* diri, void* ptr) {
   delete p;
 }
 
+void bungkus_js_free(mrb_state* diri, void* ptr) {
+  bungkus_js* p = reinterpret_cast<bungkus_js*>(ptr);
+  delete p;
+}
+
 void lorong_compiler(compiler_rincian* rinci) {
   mrb_state* diri;
   mrb_value pos;
@@ -543,9 +555,10 @@ void lorong_compiler(compiler_rincian* rinci) {
   struct bungkus_lorong* bungkus;
   Taguja* penyedia;
   const char *id, *filename, *ext;
-  int index;
+  int index, arena;
 
   diri = rinci->diri;
+  arena = mrb_gc_arena_save(diri);
   bungkus = new struct bungkus_lorong();
   tangkap = mrb_data_object_alloc(diri, diri->object_class, bungkus, &lorong_type);
   penyedia = reinterpret_cast<Taguja*>(rinci->kuasa);
@@ -592,6 +605,7 @@ void lorong_compiler(compiler_rincian* rinci) {
       rinci->hasil = mrb_nil_value();
     }
   }
+  mrb_gc_arena_restore(diri, arena);
 }
 
 void lorong_esm_compiler(compiler_rincian* rinci) {
@@ -668,7 +682,8 @@ void taguja_proxy(const FunctionCallbackInfo<Value>& args) {
     "DEFAULT_ORIGIN", 
     "MEDIA_PATH_MAP", 
     "URL_EXCLUDE_REGEX", 
-    "URL_REGEX"
+    "URL_REGEX", 
+    "MEDIA_KEYS"
   };
   
   if (target->Has(c, prop).FromJust()) {
@@ -753,7 +768,8 @@ void taguja_respon_pesan(const FunctionCallbackInfo<Value>& info) {
   Isolate* isolate = info.GetIsolate();
   Local<Context> context = isolate->GetCurrentContext();
   pesan_rincian rinci;
-  Local<Object> dari;
+  bungkus_js pegang;
+  Local<Object> dari, global;
   Local<Value> prop;
   Local<String> tulisan;
 
@@ -792,6 +808,12 @@ void taguja_respon_pesan(const FunctionCallbackInfo<Value>& info) {
   prop = dari->Get(context, FIXED_ONE_BYTE_STRING(isolate, "fromMe")).ToLocalChecked();
   Local<Boolean> bendera = prop.As<Boolean>();
   rinci.fromMe = bendera->BooleanValue(isolate);
+
+  global = context->Global();
+  prop = global->Get(context, FIXED_ONE_BYTE_STRING(isolate, "conn")).ToLocalChecked();
+  Local<Object> akar = prop.As<Object>();
+  rinci.akar = &pegang;
+  pegang.akar.Reset(isolate, akar);
 
   size_t panjang, banget;
   char16_t* duaByte;
@@ -1121,6 +1143,7 @@ v8::MaybeLocal<v8::Value> Taguja::LoadEntryFileOrZlib() {
     MulaiESM();
     bungkus.id = std::string("taguja:entry/entry.js");
     PanggilShipped(portal, &bungkus);
+    lorong_js_(this);
     return scope.Escape(bungkus.inti.Get(isolate));
   } else {
     return {};
@@ -1623,6 +1646,270 @@ void Taguja::UraiJSON(compiler_rincian* rinci, struct bungkus_lorong* bungkus) {
   }
 }
 
+MaybeLocal<Value> Taguja::ObjJSFromRuby(Isolate* iso, mrb_value asal) {
+  EscapableHandleScope scope(iso);
+  Local<Array> deret;
+  Local<Object> duet;
+  Local<String> json;
+  Local<Value> tempel, hasil;
+  mrb_value serial, pegang;
+  bungkus_js* bjs;
+  char16_t *wideString;
+  size_t banget;
+  
+  if (mrb_string_p(asal)) {
+    hasil = OneByteString(iso, RSTRING_PTR(asal), RSTRING_LEN(asal));
+  } else if (mrb_symbol_p(asal)) {
+    hasil = OneByteString(iso, mrb_sym2name(diri_, mrb_symbol(asal)));
+  } else if (mrb_array_p(asal)) {
+    deret = Array::New(iso, RARRAY_LEN(asal));
+    for (size_t i = 0; i < RARRAY_LEN(asal); i++) {
+      if (ObjJSFromRuby(iso, RARRAY_PTR(asal)[i]).ToLocal(&tempel)) {
+        deret->Set(env_->context(), i, tempel).Check();
+      } else {
+        return {};
+      }
+    }
+    hasil = deret;
+  } else if (mrb_hash_p(asal)) {
+    serial = mrb_funcall(diri_, asal, "to_json", 0);
+    wideString = reinterpret_cast<char16_t*>(malloc(sizeof(char16_t) * (RSTRING_LEN(serial) + 1)));
+    banget = simdutf::convert_utf8_to_utf16(RSTRING_PTR(serial), RSTRING_LEN(serial), wideString);
+    wideString[banget] = 0;
+    json = String::NewFromTwoByte(iso, reinterpret_cast<uint16_t*>(wideString)).ToLocalChecked();
+    free(wideString);
+    hasil = JSON::Parse(env_->context(), json).ToLocalChecked();
+  } else if (mrb_true_p(asal)) {
+    hasil = True(iso);
+  } else if (mrb_false_p(asal)) {
+    hasil = False(iso);
+  } else if (mrb_nil_p(asal)) {
+    hasil = Null(iso);
+  } else if (mrb_obj_is_kind_of(diri_, asal, mrb_class_get(diri_, "PengantarJS"))) {
+    if (mrb_iv_defined(diri_, asal, mrb_intern_lit(diri_, "_obyek_js"))) {
+      pegang = mrb_iv_get(diri_, asal, mrb_intern_lit(diri_, "_obyek_js"));
+      bjs = reinterpret_cast<bungkus_js*>(DATA_PTR(pegang));
+      hasil = bjs->akar.Get(iso);
+    } else {
+      return {};
+    }
+  } else {
+    mrb_raise(diri_, mrb_exc_get(diri_, "ArgumentError"), "Argumen tidak bisa diconvert");
+    return {};
+  }
+  return scope.Escape(hasil);
+}
+
+void taguja_resolve_common(const FunctionCallbackInfo<Value>& info) {
+  Environment* env;
+  Taguja* kuasa;
+
+  // std::cout << "DiResolve!" << std::endl;
+  env = Environment::GetCurrent(info);
+  kuasa = env->taguja();
+  // Mutex::ScopedLock kunci(kuasa->tanda_resolve_);
+  // kuasa->penghalang_resolve_.Broadcast(kunci);
+}
+
+mrb_value Taguja::ObjRubyFromJS(Isolate* iso, Local<Value> asal) {
+  RData* dt;
+  mrb_value pegang, bungkus;
+  Local<Value> tempel, taruh;
+  Local<Array> ary;
+  Local<String> untaian;
+  Local<Promise> tunggu, tgg;
+  Local<Function> resolve, terus;
+  std::vector<Local<Value>> args{};
+  bungkus_js* bjs;
+
+  if (asal->IsString()) {
+    Utf8Value str(iso, asal);
+    return mrb_str_new(diri_, *str, str.length());
+  } else if (asal->IsArray()) {
+    ary = asal.As<Array>();
+    pegang = mrb_ary_new(diri_);
+    for (size_t i = 0; i < ary->Length(); i++) {
+      taruh = ary->Get(env_->context(), i).ToLocalChecked();
+      mrb_ary_push(diri_, pegang, ObjRubyFromJS(iso, taruh));
+    }
+    return pegang;
+  } else if (asal->IsPromise()) {
+    Mutex::ScopedLock kunci(tanda_resolve_);
+    tunggu = asal.As<Promise>();
+    tempel = tunggu->Get(env_->context(), FIXED_ONE_BYTE_STRING(iso, "then")).ToLocalChecked();
+    resolve = Function::New(env_->context(), taguja_resolve_common).ToLocalChecked();
+    args.push_back(resolve.As<Value>());
+    terus = tempel.As<Function>();
+    taruh = terus->Call(env_->context(), asal, 1, args.data()).ToLocalChecked();
+    return mrb_nil_value();
+    // std::cout << "Tunggu" << std::endl;
+    // penghalang_resolve_.Wait(kunci);
+    // std::cout << "Yay selesai" << std::endl;
+    // tgg = tunggu->Then(env_->context(), Function::New(env_->context(), taguja_resolve_common).ToLocalChecked()).ToLocalChecked();
+    // if (tunggu->HasHandler()) {
+    //   while (tunggu->State() == Promise::kPending) {
+    //     std::cout << "Hijau" << std::endl;
+    //     iso->PerformMicrotaskCheckpoint();
+    //     // std::cout << "Kuning" << std::endl;
+    //     env_->context()->GetMicrotaskQueue()->PerformCheckpoint(iso);
+    //     // std::cout << "Merah" << std::endl;
+    //     env_->RunAndClearInterrupts();
+    //     // std::cout << "Putih" << std::endl;
+    //   }
+    //   if (tunggu->State() == Promise::kFulfilled) {
+    //     return ObjRubyFromJS(iso, tunggu->Result());
+    //   } else {
+    //     return mrb_symbol_value(mrb_intern_lit(diri_, "rejected"));
+    //   }
+    // }
+  } else if (asal->IsObject()) {
+    // untaian = JSON::Stringify(env_->context(), asal).ToLocalChecked();
+    // Utf8Value str2(iso, untaian);
+    // pegang = mrb_str_new(diri_, *str2, str2.length());
+    // return mrb_funcall(diri_, mrb_obj_value(mrb_module_get(diri_, "JSON")), "parse", 1, pegang);
+    bjs = new bungkus_js();
+    bjs->akar.Reset(iso, asal.As<Object>());
+    bjs->kendala = this;
+    pegang = mrb_obj_new(diri_, mrb_class_get(diri_, "PengantarJS"), 0, NULL);
+    dt = mrb_data_object_alloc(diri_, diri_->object_class, bjs, &bungkus_js_type);
+    bungkus = mrb_obj_value(dt);
+    mrb_iv_set(diri_, bungkus, mrb_intern_lit(diri_, "_obyek_js"), bungkus);
+    return pegang;
+  } else if (asal->IsNullOrUndefined()) {
+    return mrb_nil_value();
+  } else if (asal->IsTrue()) {
+    return mrb_true_value();
+  } else if (asal->IsFalse()) {
+    return mrb_false_value();
+  } else if (asal->IsFunction()) {
+    bjs = new bungkus_js();
+    bjs->akar.Reset(iso, asal.As<Object>());
+    bjs->kendala = this;
+    pegang = mrb_obj_new(diri_, mrb_class_get(diri_, "PengantarJS"), 0, NULL);
+    dt = mrb_data_object_alloc(diri_, diri_->object_class, bjs, &bungkus_js_type);
+    bungkus = mrb_obj_value(dt);
+    RProc* h = mrb_proc_new_cfunc(diri_, callback_js_func);
+    mrb_iv_set(diri_, mrb_obj_value(h), mrb_intern_lit(diri_, "_obyek_js"), bungkus);
+    return mrb_obj_value(h);
+  } else {
+    mrb_raise(diri_, mrb_exc_get(diri_, "ArgumentError"), "JS::Value tidak bisa diconvert");
+  }
+  return mrb_nil_value();
+}
+
+mrb_value callback_js_func(mrb_state* diri, mrb_value self) {
+  Taguja *kuasa;
+  mrb_int args_len;
+  mrb_value *args, pegang, hasil;
+  bungkus_js* bjs;
+  int arena;
+  mrb_get_args(diri, "*!", &args, &args_len);
+  pegang = mrb_iv_get(diri, self, mrb_intern_lit(diri, "_obyek_js"));
+  bjs = reinterpret_cast<bungkus_js*>(DATA_PTR(pegang));
+  kuasa = reinterpret_cast<Taguja*>(bjs->kendala);
+  arena = mrb_gc_arena_save(diri);
+  hasil = kuasa->PanggilDariRuby(bjs, args_len, args);
+  mrb_gc_arena_restore(diri, arena);
+  return hasil;
+}
+
+mrb_value Taguja::RefFromRuby(bungkus_js* bjs, mrb_sym nama, mrb_value* argv, mrb_int len) {
+  Isolate *iso;
+  Local<Context> ctx;
+  MaybeLocal<Value> maybe;
+  Local<Value> tempel, nilai, conn, taruh;
+  Local<Object> sumber, global;
+  Local<Function> fn;
+  std::vector<Local<Value>> param{};
+  mrb_value pegang;
+  int arena;
+
+  arena = mrb_gc_arena_save(diri_);
+  iso = env_->isolate();
+  ctx = env_->context();
+  HandleScope scope(iso);
+  sumber = bjs->akar.Get(iso);
+  if (!sumber->Has(ctx, OneByteString(iso, mrb_sym2name(diri_, nama))).ToChecked()) {
+    mrb_raise(diri_, mrb_exc_get(diri_, "ArgumentError"), "Attribute tidak ditemukan");
+    return mrb_nil_value();
+  }
+  nilai = sumber->Get(ctx, OneByteString(iso, mrb_sym2name(diri_, nama))).ToLocalChecked();
+  if (nilai->IsFunction()) {
+    fn = nilai.As<Function>();
+    for (size_t i = 0; i < len; i++) {
+      if (ObjJSFromRuby(iso, argv[i]).ToLocal(&tempel)) {
+        param.push_back(tempel);
+      } else {
+        return mrb_nil_value();
+      }
+    }
+    global = ctx->Global();
+    conn = global->Get(ctx, FIXED_ONE_BYTE_STRING(iso, "conn")).ToLocalChecked();
+    maybe = fn->Call(ctx, conn, len, param.data());
+    if (!maybe.ToLocal(&taruh)) {
+      mrb_raise(diri_, mrb_exc_get(diri_, "ArgumentError"), "Parameter tidak sama dengan deklarasi");
+      return mrb_nil_value();
+    }
+  } else {
+    taruh = nilai;
+  }
+  
+  pegang = ObjRubyFromJS(iso, taruh);
+  mrb_gc_arena_restore(diri_, arena);
+  return pegang;
+}
+
+mrb_value Taguja::PanggilDariRuby(bungkus_js* bjs, mrb_int argc, mrb_value* args) {
+  Isolate *i = env_->isolate();
+  Local<Context> c = env_->context();
+  std::vector<Local<Value>> param{};
+  Local<Function> fn;
+  Local<Value> tempel, hasil;
+  for (size_t j = 0; j < argc; j++) {
+    if (ObjJSFromRuby(i, args[j]).ToLocal(&tempel)) {
+      param.push_back(tempel);
+    } else {
+      return mrb_nil_value();
+    }
+  }
+  fn = bjs->akar.Get(i).As<Function>();
+  hasil = fn->Call(c, Undefined(i), argc, param.data()).ToLocalChecked();
+  return ObjRubyFromJS(i, hasil);
+}
+
+void Taguja::TambahanJS(rincian_tambahan_js* rtj, const char* kode) {
+  MaybeLocal<Function> maybe;
+  Local<Function> fn;
+  compiler_rincian rinci;
+  struct bungkus_lorong *bungkus;
+  bungkus_js *akar;
+  char id[4];
+  bungkus = new struct bungkus_lorong();
+  akar = new bungkus_js();
+  id[0] = rtj->id / 100 + 0x30;
+  id[1] = rtj->id / 10 % 10 + 0x30;
+  id[2] = rtj->id % 10 + 0x30;
+  id[3] = 0;
+  bungkus->id = std::string("jennerie: source number xxx");
+  bungkus->id.replace(24, 4, id);
+  rinci.id = bungkus->id.c_str();
+  rinci.sumber = kode;
+  rinci.length = strlen(kode);
+  maybe = Compile(&rinci);
+  if (maybe.ToLocal(&fn)) {
+    bungkus->filename = std::string("system");
+    PanggilShipped(fn, bungkus);
+    akar->akar.Reset(env_->isolate(), bungkus->inti.As<Object>());
+    rtj->bungkus = bungkus;
+    rtj->akar = akar;
+  } else {
+    rtj->bungkus = NULL;
+    rtj->akar = NULL;
+    delete bungkus;
+    delete akar;
+  }
+}
+
 void Taguja::Logout() {
   Isolate *i = env_->isolate();
   Local<Context> c = env_->context();
@@ -1633,5 +1920,6 @@ void Taguja::Logout() {
 }
 
 void Taguja::V8Keluar() {
-  env_->Exit(0);
+  node::Stop(env_);
+  // env_->Exit(0);
 }

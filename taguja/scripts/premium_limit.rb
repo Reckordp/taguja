@@ -7,6 +7,10 @@ module PremiumLimit
       kesempatan[0] -= 1
       jawab("\nSisa Limit: %d\n" % kesempatan.first)
     end
+
+    def kasus
+      return rutinitas
+    end
   end
 
   class FiturNcene < IndukFiturBot
@@ -34,43 +38,65 @@ LEMBARAN
   end
 
   class FiturAwmu < IndukFiturBot
+    include Util
+    LIMIT = 20
     PERINTAH = %q(awmu)
-
-    def rutinitas
-      jawab "Implement code #102"
-    end
+    def memulai; @tunnel.push(:war_player); end
+    def aktivitas; jawab @tunnel[0].call; end
   end
 
   class FiturAwake < IndukFiturBot
+    include Util
+    LIMIT = 2
     PERINTAH = %q(awake)
-
-    def rutinitas
-      jawab "Implement code #103"
+    def memulai; @tunnel.push(:war_leave); end
+    def aktivitas
+      tim = @tunnel[0].call
+      jawab(tim.nil? ? %q(Kamu belum join) : "Berhasil keluar dari tim *%s*" % tim)
     end
   end
 
   class FiturBolo < IndukFiturBot
+    include Util
+    LIMIT = 5
     PERINTAH = %q(bolo)
-
-    def rutinitas
-      jawab "Implement code #104"
+    def memulai; @tunnel.push(:war_join); end
+    def aktivitas
+      ssr = sasaran.dup
+      return jawab(%q(penggunaan: _.bolo *Anggrek*_)) if ssr.empty?
+      return jawab(%q(penggunaan: _.bolo *Anggrek*_)) unless ssr.index(32.chr).nil?
+      ret = @tunnel[0].call(ssr)
+      jawab(ret ? "Berhasil masuk tim *#{ssr}*" : %q(Sesi War telah dimulai))
     end
   end
 
   class FiturIzinmin < IndukFiturBot
+    include Util
+    LIMIT = 20
     PERINTAH = %q(karo)
-
-    def rutinitas
-      jawab "Implement code #105"
+    def memulai; @tunnel.push(:war_start); end
+    def aktivitas
+      begin
+        taruhan = @tunnel[0].call
+        jawab(%q(Memulai War!) + 10.chr)
+        jawab(%q(Taruhan yang disepakati ) + taruhan.to_s + 10.chr)
+        jawab(%q(Pakai *.mwuach* untuk menyerang))
+      rescue Game::Perang::MasihAdaSesi
+        jawab(%q(Sesi War masih panas berjalan))
+      rescue Game::Perang::TidakAdaMusuh
+        jawab(%q(Musuh tidak ditemukan))
+      rescue Game::Perang::TidakBertaruh => e
+        jawab(e.message + 10.chr + %q(Tidak memasang taruhan))
+      end
     end
   end
 
   class FiturMwuah < IndukFiturBot
+    include Util
+    LIMIT = 80
     PERINTAH = %q(mwuach)
-
-    def rutinitas
-      jawab "Implement code #106"
-    end
+    def memulai; @tunnel.push(:war_attack); end
+    def rutinitas; jawab(@tunnel[0].call(sasaran)); end
   end
 
   class FiturYa < IndukFiturBot

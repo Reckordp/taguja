@@ -91,7 +91,7 @@ LEMBARAN
         next if baris.nil?
 
         kelazz = ft.class.to_s
-        if baris == %q(jekpot)
+        if baris == %q(hajirullah33)
           @kelompok[%q(Owner)].push(baris.dup)
         elsif kelazz[0, 7] == %q(Premium)
           jenis = kelazz[7, kelazz.index(%q(:)) - 7]

@@ -12,6 +12,8 @@ extern "C" {
   #include <shipped.h>
 }
 
+#include <mruby.h>
+#include <mruby/array.h>
 #include <mruby/data.h>
 
 class node::Environment;
@@ -26,12 +28,15 @@ using BuiltinCodeCacheMap =
 using PersistentModule = v8::Persistent<v8::Module, v8::CopyablePersistentTraits<v8::Module>>;
 using PenangkapLogin = void (*)(int,std::vector<std::vector<bool>>);
 using PenangkapPesan = void (*)(pesan_rincian*);
+using LorongJS = void(*)(Taguja*);
 using Nusalogin = void (*)(char*,char*);
 using Nusalogout = void (*)();
 // typedef struct {
 // 	char folder[64];
 // 	off_t patokan;
 // } shipped_himpunan;
+
+mrb_value callback_js_func(mrb_state*, mrb_value);
 
 struct bungkus_lorong {
   HANDLE tanda;
@@ -64,6 +69,11 @@ struct esm_rincian {
   v8::Persistent<v8::Object, v8::CopyablePersistentTraits<v8::Object>> exports;
 };
 
+typedef struct taguja_bungkus_js {
+  v8::Persistent<v8::Object> akar;
+  void* kendala;
+} bungkus_js;
+
 typedef struct taguja_pesan_rincian {
   Taguja* kuasa;
   std::string id;
@@ -73,8 +83,16 @@ typedef struct taguja_pesan_rincian {
   std::string nama;
   bool fromMe;
   std::string text;
+  bungkus_js *akar;
   std::string respon;
 } pesan_rincian;
+
+typedef struct taguja_rincian_tambahan_js {
+  Taguja* kuasa;
+  int id;
+  bungkus_js *akar;
+  struct bungkus_lorong *bungkus;
+} rincian_tambahan_js;
 
 class Taguja {
   public:
@@ -104,8 +122,16 @@ class Taguja {
   void ProsesPutaranInternal(struct putaran*);
   static DWORD ProsesPutaran(void*);
   void UraiJSON(compiler_rincian*, struct bungkus_lorong*);
+  v8::MaybeLocal<v8::Value> ObjJSFromRuby(v8::Isolate*, mrb_value);
+  mrb_value ObjRubyFromJS(v8::Isolate*, v8::Local<v8::Value>);
+  mrb_value RefFromRuby(bungkus_js*, mrb_sym, mrb_value*, mrb_int);
+  mrb_value PanggilDariRuby(bungkus_js*, mrb_int, mrb_value*);
+  void TambahanJS(rincian_tambahan_js*,const char*);
   void Logout();
   void V8Keluar();
+
+  node::Mutex tanda_resolve_;
+  node::ConditionVariable penghalang_resolve_;
 
   v8::Persistent<v8::Function> cjs_loader_;
   v8::Persistent<v8::Function> esm_translators_;
@@ -124,6 +150,7 @@ class Taguja {
   v8::Persistent<v8::Function> cjs_source_cache_;
   PenangkapLogin penangkap_login_;
   PenangkapPesan penangkap_pesan_;
+  LorongJS lorong_js_;
   Nusalogin nusa_login_;
   Nusalogout nusa_logout_;
   HANDLE instance;

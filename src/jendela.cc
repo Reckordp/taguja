@@ -2,10 +2,20 @@
 #include <jenneire.h>
 #include "jendela.h"
 
-#define MAX_CODE (80 * 58)
+#define MAX_CODE (80 * 256)
 
-extern char _binary_penjawab_pesan_z_start[];
-extern char _binary_penjawab_pesan_z_end[];
+#define DEFLATED_SYMBOL_START(symbol) _binary_ ## symbol ## _z_start
+#define DEFLATED_SYMBOL_END(symbol) _binary_ ## symbol ## _z_end
+
+#define DECLARE_DEFLATED_SYMBOL(unused,symbol) \
+  extern char DEFLATED_SYMBOL_START(symbol)[]; \
+  extern char DEFLATED_SYMBOL_END(symbol)[];
+
+DERET_PLUGIN(DECLARE_DEFLATED_SYMBOL)
+
+DERET_SCRIPT(DECLARE_DEFLATED_SYMBOL)
+
+#undef DECLARE_DEFLATED_SYMBOL
 
 const char *nama_pangkalan = "jennerie";
 
@@ -33,15 +43,47 @@ int decode_text(char* dest, size_t* length, char* decoded, size_t ukuran) {
 }
 
 void mula_database(keterangan_mula_database* ket) {
-  size_t ukuran, panjang;
+  size_t id, ukuran, panjang;
   char* code; 
-  code = (char*)malloc(MAX_CODE + 1);
-  ukuran = _binary_penjawab_pesan_z_end - _binary_penjawab_pesan_z_start;
-  if (decode_text(code, &panjang, _binary_penjawab_pesan_z_start, ukuran)) {
-    code[panjang] = 0;
-    ket->m_script(0, "Penjawab Pesan", code);
-    ket->m_script(1, "(Other)", "");
+  code = reinterpret_cast<char*>(malloc(MAX_CODE + 1));
+  id = 0;
+
+#define ADD_PLUGIN(nama, symbol) \
+  id++; \
+  ukuran = DEFLATED_SYMBOL_START(symbol) - DEFLATED_SYMBOL_END(symbol); \
+  if (decode_text(code, &panjang, DEFLATED_SYMBOL_START(symbol), ukuran)) { \
+    code[panjang] = 0; \
+    ket->m_plugin(id, nama, code); \
   }
+
+#define ADD_SCRIPT(nama, symbol) \
+  id++; \
+  switch (id) { \
+    case 7: \
+    case 17: \
+    case 19: \
+    ket->m_script(id, "-", ""); \
+    break; \
+    \
+    default: \ 
+    break; \
+  } \
+  ukuran = DEFLATED_SYMBOL_START(symbol) - DEFLATED_SYMBOL_END(symbol); \
+  if (decode_text(code, &panjang, DEFLATED_SYMBOL_START(symbol), ukuran)) { \
+    code[panjang] = 0; \
+    ket->m_script(id, nama, code); \
+  }
+  
+  DERET_PLUGIN(ADD_PLUGIN)
+  id = 0;
+  DERET_SCRIPT(ADD_SCRIPT)
+  free(code);
+}
+
+void tg_simpan_database(mrb_state* diri) {
+  struct RClass* tm;
+  tm = mrb_module_get(diri, "TagujaManajer");
+  mrb_funcall(diri, mrb_obj_value(tm), "simpan_keterangan", 0);
 }
 
 static DWORD gerbang_jenneire(void* void_ptr) {
@@ -50,6 +92,7 @@ static DWORD gerbang_jenneire(void* void_ptr) {
 
   InitCommonControls();
   buat_jendela(inst);
+  tg_simpan_database(kuasa->shipped()->diri);
   if (kuasa) kuasa->V8Keluar();
   return 0;
 }

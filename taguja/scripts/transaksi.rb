@@ -11,6 +11,7 @@ class PabrikFiturBot
     @no_transaksi = 1
     @no_karcis = 1
     @deret_tunnel = {}
+    @game = Game::PabrikGame.new(@deret_tunnel)
   end
 
   def tunnel_tersedia(id, meth)
@@ -97,13 +98,19 @@ end
 
 class PluginManajer
   def tambahkan(pengantar)
-    p pengantar.rincian.id
+    @plugin[pengantar.rincian.id] = pengantar
+  end
+
+  def plugin_at(num)
+    return @plugin["jennerie: source number %03d" % num]
   end
 end
 
 module TagujaManajer
   def self.mulai_tunnel
     fitur.mulai_tunnel
+    fitur.tunnel_tersedia(:kini, proc { next @seragam })
+    fitur.tunnel_tersedia(:tukar, proc { |ganti| @seragam = ganti; next nil })
     fitur.tunnel_tersedia(:tersedia?, @keterangan.method(:pengguna_tersedia?))
     fitur.tunnel_tersedia(:cari_by_jid, @keterangan.method(:pengguna_dari_jid))
     fitur.tunnel_tersedia(:kudeta_owner, @keterangan.method(:ganti_owner))

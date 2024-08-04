@@ -1,9 +1,5 @@
 TARGET = %q(libnode.a)
-SUMBER = ENV['NODE_PROJECT']
-HEADER_MRUBY = ENV['MRUBY_HEADER']
-HEADER_SHIPPED = ENV['SHIPPED_HEADER']
-HEADER_JENNEIRE = ENV['JENNEIRE_HEADER']
-HEADER_NUSA = ENV['NUSA_HEADER']
+SUMBER = %q(D:/Singgah/node-v18.17.0)
 DEFINITION = <<~CMDLINE.split(/\n/)
   V8_DEPRECATION_WARNINGS
   V8_IMMINENT_DEPRECATION_WARNINGS
@@ -245,7 +241,6 @@ OBJS = <<~CMDLINE.split(/\n/)
   src/node/inspector/protocol/NodeTracing.o
   src/node/inspector/protocol/NodeRuntime.o
   taguja_z.o
-  penjawab_pesan_z.o
 CMDLINE
 
 OBJS_DLL = <<~CMDLINE.split(/\n/)
@@ -253,12 +248,63 @@ OBJS_DLL = <<~CMDLINE.split(/\n/)
   taguja_z.o
 CMDLINE
 
+PLUGIN_INTERNAL = <<~CMDLINE.split(/\n/)
+  serial
+CMDLINE
+
+SCRIPT_INTERNAL = <<~CMDLINE.split(/\n/)
+  pangkalan
+  transaksi
+  barang_ransel
+  game
+  user_personal
+  owner_only
+  premium_event
+  premium_limit
+  premium_daily
+  premium_bet
+  free_common
+  free_common_a
+  free_inflow
+  free_outflow
+  medan
+CMDLINE
+
 GETOBJ = proc do |nama|
   File.join('build', nama)
 end
 
+GETOBJSCRIPT = proc do |nama|
+  GETOBJ.call(nama + '_z.o')
+end
+
+GETENCODEDSCRIPT = proc do |nama|
+  nama.sub(/build/, 'taguja').sub('_z.o', '.z')
+end
+
 GETSRC = proc do |hasil|
   hasil.sub(/build/, 'src').sub('.o', '.cc')
+end
+
+GETFILESCRIPT = proc do |nama|
+  tanpa_ekstensi = File.basename(nama).sub('.z', '')
+  dalam_plugin = PLUGIN_INTERNAL
+    .find { |plugin| plugin == tanpa_ekstensi }
+  if dalam_plugin.nil?
+    File.join(File.dirname(nama), 'scripts', tanpa_ekstensi + '.rb')
+  else
+    File.join(File.dirname(nama), 'plugins', tanpa_ekstensi + '.js')
+  end
+end
+
+rule '.z' => GETFILESCRIPT do |t|
+  sh 'ruby taguja/encode.rb ' + t.prerequisites.first
+end
+
+rule '_z.o' => GETENCODEDSCRIPT do |t|
+  Dir.chdir('taguja')
+  sh "ld -r -b binary -o #{File.join('..', t.name)} #{File.basename(t.prerequisites.first)}"
+  Dir.chdir('..')
 end
 
 rule '.o' => GETSRC do |t|
@@ -276,28 +322,14 @@ rule '.o' => GETSRC do |t|
     .concat(CFLAGS.join(' '))
     .concat(' -I src ')
     .concat(HEADER.collect(&cmdheader).join(' '))
-    .concat(" -I #{HEADER_MRUBY} ")
-    .concat(" -I #{HEADER_SHIPPED} ")
-    .concat(" -I #{HEADER_JENNEIRE} ")
-    .concat(" -I #{HEADER_NUSA}")
+    .concat(' -I D:/Singgah/mruby/include ')
+    .concat(' -I D:/CustomSystem/shipped/include ')
+    .concat(' -I D:/CustomSystem/jenneire-implement/include ')
+    .concat(' -I D:/CustomSystem/nusa/include')
   tempat = File.dirname(t.name)
   sh('mkdir ' + tempat.gsub(/\//, "\\")) unless Dir.exist?(tempat)
   sh "g++ #{opt} -o #{t.name} -c #{t.prerequisites.first}"
   # sh "g++ #{opt} -o #{t.name} -c #{t.prerequisites.first} 2> err.txt"
-end
-
-file 'build/taguja_z.o' => 'taguja/taguja.js' do |t|
-  Dir.chdir('taguja')
-  sh 'ruby encode.rb taguja.js'
-  sh "ld -r -b binary -o #{File.join('..', t.name)} taguja.z"
-  Dir.chdir('..')
-end
-
-file 'build/penjawab_pesan_z.o' => 'taguja/penjawab_pesan.rb' do |t|
-  Dir.chdir('taguja')
-  sh 'ruby encode.rb penjawab_pesan.rb'
-  sh "ld -r -b binary -o #{File.join('..', t.name)} penjawab_pesan.z"
-  Dir.chdir('..')
 end
 
 file 'taguja.dll' => OBJS_DLL.collect(&GETOBJ) do |t|
@@ -305,7 +337,8 @@ file 'taguja.dll' => OBJS_DLL.collect(&GETOBJ) do |t|
   sh "g++ -shared -o #{t.name} #{t.prerequisites.join(' ')} #{optlib}"
 end
 
-for_static_library = OBJS.collect(&GETOBJ)
+source_internal = PLUGIN_INTERNAL.collect(&GETOBJSCRIPT) + SCRIPT_INTERNAL.collect(&GETOBJSCRIPT)
+for_static_library = OBJS.collect(&GETOBJ) + source_internal
 # for_static_library.push('taguja.dll')
 file TARGET => for_static_library do |t|
   sh 'ar rcs -o ' + t.name + ' ' + t.prerequisites.join(' ')
@@ -316,3 +349,50 @@ end
 Dir.mkdir('build') unless Dir.exist?('build')
 
 task default: TARGET
+
+task misirahasia: nil do 
+  cmdheader = proc do |i|
+    '-I ' + if i.match(/^[(?:deps)(?:tools)]/)
+      File.join(SUMBER, i)
+    elsif i.match(/^gen/)
+      File.join(SUMBER, File.join('out', 'Release', 'obj', i))
+    else
+      raise "Tidak dapat menemukan lokasi " + i
+    end
+  end
+  opt = DEFINITION.collect { |i| '-D' + i } .join(' ')
+    .concat(' ')
+    .concat(CFLAGS.join(' '))
+    .concat(' -I src ')
+    .concat(HEADER.collect(&cmdheader).join(' '))
+    .concat(' -I D:/Singgah/mruby/include ')
+    .concat(' -I D:/CustomSystem/shipped/include')
+  # produk = 'build/src/node/inspector/protocol/NodeRuntime.o'
+  # bahan = File.join(SUMBER, 'out/Release', 'obj', 'gen/src/node/inspector/protocol/NodeRuntime.cpp')
+  # sh "g++ #{opt} -o #{produk} -c #{bahan}"
+  # produk = 'build/src/node/inspector/protocol/Protocol.o'
+  # bahan = File.join(SUMBER, 'out/Release', 'obj', 'gen/src/node/inspector/protocol/Protocol.cpp')
+  # sh "g++ #{opt} -o #{produk} -c #{bahan}"
+  # produk = 'build/src/node/inspector/protocol/NodeWorker.o'
+  # bahan = File.join(SUMBER, 'out/Release', 'obj', 'gen/src/node/inspector/protocol/NodeWorker.cpp')
+  # sh "g++ #{opt} -o #{produk} -c #{bahan}"
+  # produk = 'build/src/node/inspector/protocol/NodeTracing.o'
+  # bahan = File.join(SUMBER, 'out/Release', 'obj', 'gen/src/node/inspector/protocol/NodeTracing.cpp')
+  # sh "g++ #{opt} -o #{produk} -c #{bahan}"
+  # produk = 'node_pch.o'
+  # bahan = File.join(SUMBER, 'tools/msvs/pch/node_pch.cc')
+  # sh "g++ #{opt} -o #{produk} -c #{bahan}"
+  # produk = 'node_snapshot.o'
+  # bahan = File.join(SUMBER, 'out/Release', 'obj', 'gen/node_snapshot.cc')
+  # sh "g++ #{opt} -o #{produk} -c #{bahan}"
+  produk = 'build/node_javascript.o'
+  bahan = File.join('taguja', 'node_javascript.cc')
+  sh "g++ #{opt} -o #{produk} -c #{bahan}"
+end
+
+task :refresh do 
+  sh 'del build\env.o'
+  sh 'del build\node_realm.o'
+  sh 'del build\node_builtins.o'
+  # Rake::Task[TARGET].invoke(for_static_library)
+end

@@ -141,13 +141,14 @@ class DataManajer
 
   def pengguna_baru(jid)
     c = @owner.jid == jid ? 0 : 3
+    seri = TagujaManajer.plugin.plugin_at(1).exports(jid)
     Taguja.gramasi(TAMBAHKAN_BARIS[:PENGGUNA] % jid)
     Taguja.gramasi(PILIH_BARIS[:PENGGUNA][:BY_JID] % jid)
     row_pengguna = Array.new(3)
     if Taguja.lembaran(%q(pengguna), row_pengguna)
       induk = row_pengguna[0].to_i
       Taguja.gramasi(TAMBAHKAN_BARIS[:KONDISI] % [induk, c])
-      Taguja.gramasi(TAMBAHKAN_BARIS[:MILIK] % [induk, %q(A)])
+      Taguja.gramasi(TAMBAHKAN_BARIS[:MILIK] % [induk, seri])
     end
     return Pengguna.new(jid).tap do |usr|
       usr.status.tap do |s|
@@ -160,7 +161,7 @@ class DataManajer
         s.ban = 0
       end
       usr.milik.tap do |m|
-        m.serial = %q(A)
+        m.serial = seri
         m.pendakian = 0
         m.money = 0
         m.inventory = []

@@ -12,6 +12,22 @@ module Inventory
     %q(📓 Buku) => 85000, 
     %q(🗑️ Sampah) => 10
   }
+  TOKO_TEMPLATE = <<MENU
+*🎒 SHOP*
+
+*🧪 Penggunaan :*
+_.beli <item> <jumlah>_
+Contoh penggunaan: _*.beli potion 1*_
+
+*📮 Note :*
+bila sudah tidak ada harganya, berarti sudah tidak bisa dibeli / sudah level max
+
+
+🛍️ List Barang:
+━━━━━━━━━━━━━━━━━━━
+*♻ Barang   | 💲 Harga beli*
+━━━━━━━━━━━━━━━━━━━
+MENU
   
   class Barang
     attr_accessor :nama, :jumlah

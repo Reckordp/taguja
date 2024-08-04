@@ -12,34 +12,15 @@ module FreeOutflow
 
   class FiturBeli < IndukFiturBot
     include Util
-
     PERINTAH = %w( beli buy )
-    TOKO = <<MENU
-*🎒 SHOP*
-
-*🧪 Penggunaan :*
-_.beli <item> <jumlah>_
-Contoh penggunaan: _*.beli potion 1*_
-
-*📮 Note :*
-bila sudah tidak ada harganya, berarti sudah tidak bisa dibeli / sudah level max
-
-
-🛍️ List Barang:
-━━━━━━━━━━━━━━━━━━━
-*♻ Barang   | 💲 Harga beli*
-━━━━━━━━━━━━━━━━━━━
-MENU
 
     def rutinitas
-      lembaran = TOKO.dup
+      lembaran = Inventory::TOKO_TEMPLATE.dup
       Inventory::BARANG_TOKO.each do |nama, harga|
         lembaran += "*#{nama}:* #{harga}\n"
       end
       lembaran += %q(━━━━━━━━━━━━━━━━━━━)
-      puts "YA"
       ret = Taguja.conn.sendMessage(TagujaManajer.pengirim.chat, { text: lembaran })
-      puts ret 
       jawab("Money kamu #{pengguna.milik.money}")
     end
 
