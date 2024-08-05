@@ -1,7 +1,8 @@
 #include "chatm.h"
 
 #define DERET_PLUGIN(DEF) \
-  DEF("Serial", serial)
+  DEF("Serial", serial) \
+  DEF("Susunkata", susunkata)
 
 #define DERET_SCRIPT(DEF) \
   DEF("Pangkalan", pangkalan) \

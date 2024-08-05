@@ -218,4 +218,11 @@ LEMBARAN
       jawab(ucapan)
     end
   end
+
+  class FiturSusunkata < IndukFiturBot
+    PERINTAH = %q(susunkata)
+    def rutinitas
+      TagujaManajer.plugin.plugin_at(2).exports({ chat: TagujaManajer.pengirim.chat })
+    end
+  end
 end

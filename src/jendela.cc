@@ -62,7 +62,7 @@ void mula_database(keterangan_mula_database* ket) {
     case 7: \
     case 17: \
     case 19: \
-    ket->m_script(id, "-", ""); \
+    ket->m_script(id++, "-", ""); \
     break; \
     \
     default: \ 
